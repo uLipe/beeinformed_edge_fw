@@ -16,13 +16,20 @@
 #include "semphr.h"
 #include "queue.h"
 #include "task.h"
+#include "timers.h"
+
+#include "em_device.h"
+#include "em_adc.h"
+#include "em_dma.h"
 
 
 #include "BLE_stateHandler_ih.h"
 #include "BLE_serialDriver_ih.h"
 #include "BleAlpwDataExchange_Server.h"
 #include "XdkSensorHandle.h"
-
+#include "PTD_portDriver_ih.h"
+#include "PTD_portDriver_ph.h"
+#include "ADC_ih.h"
 
 #include "edge_data_env.h"
 #include "edge_audio_acq.h"

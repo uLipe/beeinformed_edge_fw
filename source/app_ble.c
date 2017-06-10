@@ -144,7 +144,7 @@ static void ble_send_packet(ble_data_t *b)
 	data_remaining = sizeof(ble_data_t) - BLE_DATA_SVC_MAX_SIZE;
 
 	BleStatus sts = BLE_sendData(&ble_outcoming_packet[0], BLE_DATA_SVC_MAX_SIZE);
-	assert(sts != BLESTATUS_FAILED);
+	//assert(sts != BLESTATUS_FAILED);
 
 	portBASE_TYPE err = xSemaphoreTake(ble_sent_sema, BLE_SEND_TIMEOUT);
 	if(err != pdTRUE) {

@@ -1,5 +1,5 @@
-/opt/XDK-Workbench/workspace/xdk_ble_play/debug/objects/edge_temp_acq.o: \
- /opt/XDK-Workbench/workspace/xdk_ble_play/source/edge_temp_acq.c \
+/opt/XDK-Workbench/workspace/xdk_ble_play/debug/objects/edge_audio_acq.o: \
+ /opt/XDK-Workbench/workspace/xdk_ble_play/source/edge_audio_acq.c \
  /opt/XDK-Workbench/workspace/xdk_ble_play/source/../usr_include/beeinformed.h \
  ../Platform/Basics/include/BCDS_Basics.h \
  ../Platform/BLE/include/BLE_stateHandler_ih.h \

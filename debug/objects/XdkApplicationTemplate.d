@@ -18,6 +18,8 @@
  ../Platform/SensorToolbox/include/BCDS_CalibratedGyro.h \
  ../Platform/SensorToolbox/include/BCDS_CalibratedMag.h \
  ../Platform/SensorToolbox/include/BCDS_FingerPrint.h \
+ ../Platform/Peripherals/include/PTD_portDriver_ih.h \
+ ../Platform/Peripherals/include/ADC_ih.h \
  /opt/XDK-Workbench/workspace/xdk_ble_play/source/../usr_include/edge_data_env.h \
  /opt/XDK-Workbench/workspace/xdk_ble_play/source/../usr_include/edge_audio_acq.h \
  /opt/XDK-Workbench/workspace/xdk_ble_play/source/../usr_include/edge_humi_acq.h \
@@ -61,6 +63,10 @@
 ../Platform/SensorToolbox/include/BCDS_CalibratedMag.h:
 
 ../Platform/SensorToolbox/include/BCDS_FingerPrint.h:
+
+../Platform/Peripherals/include/PTD_portDriver_ih.h:
+
+../Platform/Peripherals/include/ADC_ih.h:
 
 /opt/XDK-Workbench/workspace/xdk_ble_play/source/../usr_include/edge_data_env.h:
 

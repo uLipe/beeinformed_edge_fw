@@ -27,6 +27,8 @@ export BCDS_XDK_APP_SOURCE_FILES = \
 	$(BCDS_APP_SOURCE_DIR)/edge_temp_acq.c\
 	$(BCDS_APP_SOURCE_DIR)/edge_humi_acq.c\
 	$(BCDS_APP_SOURCE_DIR)/edge_press_acq.c\
+	$(BCDS_APP_SOURCE_DIR)/edge_lumi_acq.c\
+	$(BCDS_APP_SOURCE_DIR)/edge_audio_acq.c\
 	
 	
 
