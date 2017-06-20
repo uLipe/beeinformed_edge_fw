@@ -41,4 +41,11 @@
 
 
 
+/**
+ * func()
+ * @brief
+ * @param
+ * @reuturn
+ */
+
 #endif /* USR_INCLUDE_BEEINFORMED_H_ */

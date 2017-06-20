@@ -12,7 +12,6 @@
 
 /** static variables */
 static ppbuf_t 	audio_buffer;
-static uint16_t	audio_ext_buffer[AUDIO_BUFFER_SIZE]={0};
 static SemaphoreHandle_t audio_signal;
 static TimerHandle_t     adc_timer;
 static uint32_t 		 adc_cnt = 0;
@@ -56,7 +55,7 @@ static void audio_adc_timer(TimerHandle_t *t)
 	(void)t;
 	uint16_t adc_data = (uint16_t)ADC_DataSingleGet(ADC0);
 	audio_buffer.data[audio_buffer.active][adc_cnt] = adc_data;
-	printf("audio_adc_timer: sample value: 0x%X\n\r\n\r", adc_data);
+	//printf("audio_adc_timer: sample value: 0x%X\n\r\n\r", adc_data);
 
 	adc_cnt++;
 	if(adc_cnt == AUDIO_BUFFER_SIZE) {
@@ -82,7 +81,8 @@ static void audio_task(void *args)
 	assert(audio_signal != NULL);
 
 	/* assign the available data to env */
-	data_env.audio_data = &audio_ext_buffer[0];
+	data_env.audio_data = &audio_buffer.data[0][0];
+	audio_buffer.active = 0;
 
 	/* init adc and DMA subsystem
 	 * and starts to listen the acoustic sensor
@@ -95,7 +95,7 @@ static void audio_task(void *args)
 
 		/* wait new data available from ISR */
 		xSemaphoreTake(audio_signal, portMAX_DELAY);
-		printf("%s: new audio data block arrived! \n\r", __func__);
+		//printf("%s: new audio data block arrived! \n\r", __func__);
 
 		/*
 		 * obtains the new captured buffer an give the next
@@ -106,9 +106,7 @@ static void audio_task(void *args)
 		audio_start_capture();
 
 		/* no data available during copy */
-		data_env.audio_data = NULL;
-		memcpy(&audio_ext_buffer, &audio_buffer.data[active], sizeof(audio_ext_buffer));
-		data_env.audio_data = &audio_ext_buffer[0];
+		data_env.audio_data = &audio_buffer.data[active][0];
 	}
 }
 

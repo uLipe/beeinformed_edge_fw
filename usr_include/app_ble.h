@@ -10,7 +10,7 @@
 
 
 /** maximum payload in bytes */
-#define PACKET_MAX_PAYLOAD 32
+#define PACKET_MAX_PAYLOAD 28
 
 
 /** packet types */
@@ -23,6 +23,7 @@ typedef enum {
 typedef enum {
 	k_get_temp = 1,
 	k_get_humi,
+	k_get_press,
 	k_get_audio,
 	k_get_lumi,
 	k_get_status,
@@ -36,7 +37,9 @@ typedef enum {
 typedef struct {
 	pack_type_t type;
 	uint8_t id;
+	uint16_t pack_amount;
 	uint16_t pack_nbr;
+	uint16_t payload_size;
 	uint8_t pack_data[PACKET_MAX_PAYLOAD];
 }ble_data_t;
 
