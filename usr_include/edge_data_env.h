@@ -11,7 +11,7 @@
 
 /* acquisition time period */
 #define ACQUISITION_SECOND	(1000)
-#define ACQUISITION_PERIOD	(ACQUISITION_SECOND * 60)
+#define ACQUISITION_PERIOD	(ACQUISITION_SECOND * 10)
 
 /* event masks */
 #define EVENT_TEMP_LOW			0x01

@@ -34,9 +34,9 @@ static void lumi_task(void *args)
 		if(err != RETCODE_SUCCESS) {
 			printf("%s: failed to get the luminosity!! \n\r", __func__);
 		} else {
-			printf("%s: succes to get the luminosity!! \n\r", __func__);
+			//printf("%s: succes to get the luminosity!! \n\r", __func__);
 		}
-		printf("%s: current luminosity is: %d (mLux)!! \n\r", __func__, lumi);
+		//printf("%s: current luminosity is: %d (mLux)!! \n\r", __func__, lumi);
 
 		/* update global structure */
 		data_env.luminosity = lumi;

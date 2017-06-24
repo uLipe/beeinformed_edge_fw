@@ -35,9 +35,9 @@ static void humi_task(void *args)
 		if(err != RETCODE_SUCCESS) {
 			printf("%s: failed to get the humidity!! \n\r", __func__);
 		} else {
-			printf("%s: succes to get the humidity!! \n\r", __func__);
+		//	printf("%s: succes to get the humidity!! \n\r", __func__);
 		}
-		printf("%s: current humidity is: %d (Percent)!! \n\r", __func__, humidity);
+		//printf("%s: current humidity is: %d (Percent)!! \n\r", __func__, humidity);
 
 		/* update global structure */
 		data_env.humidity = humidity;

@@ -1,8 +1,8 @@
-# BeeInformed Edge firmware
-- Edge acquisition device based on bosch XDK
-- gathers environmental data periodically and store
-- The data and device control can be acessed using overBle Protocol
-- Was made to operate with BeeInformed Gateway
+# BLE with Bosch XDK
+- Simple example to make XDK to send data packets via BLE
+- The XDK device will boots and will start ble advertisement
+- Connect to "ulipe xdk ble" device with bluetooth test tool
+- Enable notifications, a string with timestamp will appear
 
 
 # Basic usage

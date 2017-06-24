@@ -12,10 +12,10 @@
 #define BLE_APP_PRIO				(configMAX_PRIORITIES - 3)
 #define BLE_HCI_WORK_PRIO			(configMAX_PRIORITIES - 4)
 #define BLE_HCI_HIGH_PRIO			(configMAX_PRIORITIES - 2)
-#define BLE_QUEUE_SLOTS				(8)
+#define BLE_QUEUE_SLOTS				(32)
 #define BLE_DATA_SVC_MAX_SIZE		(20)
-#define BLE_SEND_TIMEOUT			(200)
-#define BLE_RECV_TIMEOUT			(4000)
+#define BLE_SEND_TIMEOUT			(5000)
+#define BLE_RECV_TIMEOUT			(5000)
 
 
 
@@ -87,6 +87,10 @@ static void ble_alpw_data_xch_cb(BleAlpwDataExchangeEvent ev, BleStatus sts,
 			void *params)	{
 	if((ev == BLEALPWDATAEXCHANGE_EVENT_RXDATA) &&
 				(sts == BLESTATUS_SUCCESS) && (params != NULL)) {
+
+		PTD_pinOutToggle(PTD_PORT_LED_ORANGE,PTD_PIN_LED_ORANGE);
+
+
 		/* extract data arrived from client */
 		BleAlpwDataExchangeServerRxData *rx =
 				(BleAlpwDataExchangeServerRxData *) params;
@@ -106,11 +110,13 @@ static void ble_alpw_data_xch_cb(BleAlpwDataExchangeEvent ev, BleStatus sts,
 			xQueueSend(ble_rx_queue, &ble_incoming_packet, 0);
 			printf("%s: complete packet arrived! \n\r", __func__);
 		}
+		PTD_pinOutToggle(PTD_PORT_LED_ORANGE,PTD_PIN_LED_ORANGE);
 	}
 
 	/* acknowledge that  data was sent */
 	else if(ev == BLEALPWDATAEXCHANGE_EVENT_TXCOMPLETE) {
-		printf("%s : txpos: %d \n\r", __func__, txpos);
+		PTD_pinOutToggle(PTD_PORT_LED_YELLOW,PTD_PIN_LED_YELLOW);
+
 
 		if(data_remaining) {
 
@@ -142,7 +148,7 @@ static void ble_alpw_data_xch_cb(BleAlpwDataExchangeEvent ev, BleStatus sts,
 			printf("%s: complete packet transmitted! \n\r", __func__);
 			xSemaphoreGive(ble_sent_sema);
 		}
-		printf("%s : data_remaining: %d \n\r", __func__, data_remaining);
+		PTD_pinOutToggle(PTD_PORT_LED_YELLOW,PTD_PIN_LED_YELLOW);
 	}
 }
 
@@ -345,7 +351,7 @@ static inline void handle_audio(ble_data_t *b)
 	portEXIT_CRITICAL();
 
 	resp.type = k_data_packet;
-	resp.id = k_get_lumi;
+	resp.id = k_get_audio;
 	resp.pack_nbr = 1;
 	resp.pack_amount = packets;
 	resp.payload_size = BLE_DATA_SVC_MAX_SIZE;

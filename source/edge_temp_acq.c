@@ -35,9 +35,9 @@ static void temp_task(void *args)
 		if(err != RETCODE_SUCCESS) {
 			printf("%s: failed to get the temperature!! \n\r", __func__);
 		} else {
-			printf("%s: succes to get the temperature!! \n\r", __func__);
+			//printf("%s: succes to get the temperature!! \n\r", __func__);
 		}
-		printf("%s: current temperature is: %d (mDeg)!! \n\r", __func__, temperature);
+		//printf("%s: current temperature is: %d (mDeg)!! \n\r", __func__, temperature);
 
 		/* update global structure */
 		data_env.temperature = temperature;

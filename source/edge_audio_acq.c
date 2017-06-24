@@ -62,7 +62,6 @@ static void audio_adc_timer(TimerHandle_t *t)
 		adc_cnt = 0;
 		xSemaphoreGive(audio_signal);
 		xTimerStop(t, 0);
-		PTD_pinOutToggle(PTD_PORT_LED_ORANGE,PTD_PIN_LED_ORANGE);
 	}
 
 }

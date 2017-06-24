@@ -35,9 +35,9 @@ static void press_task(void *args)
 		if(err != RETCODE_SUCCESS) {
 			printf("%s: failed to get the pressure!! \n\r", __func__);
 		} else {
-			printf("%s: succes to get the pressure!! \n\r", __func__);
+			//printf("%s: succes to get the pressure!! \n\r", __func__);
 		}
-		printf("%s: current pressure is: %d (Pa)!! \n\r", __func__, pressure);
+		//printf("%s: current pressure is: %d (Pa)!! \n\r", __func__, pressure);
 
 		/* update global structure */
 		data_env.pressure = pressure;
