@@ -9,10 +9,10 @@
 #define SOURCE_EDGE_AUDIO_ACQ_H_
 
 /* audio buffer size in samples */
-#define AUDIO_BUFFER_SIZE  500
+#define AUDIO_BUFFER_SIZE  2048
 
-/* audio buffer sample rate ticks */
-#define AUDIO_SAMPLE_RATE  2
+/* audio buffer sample in s */
+#define AUDIO_SAMPLE_RATE  1000000
 
 /* audio ping-pongbuffer structure */
 typedef struct {
