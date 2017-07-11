@@ -8,7 +8,7 @@
 
 #define AUDIO_TASK_STK_SIZE			256
 #define AUDIO_TASK_PRIO				(configMAX_PRIORITIES - 2)
-#define AUDIO_DMA_SIGNAL			DMAREQ_ADC0_SCAN
+#define AUDIO_DMA_SIGNAL			DMAREQ_ADC0_SINGLE
 #define AUDIO_DMA_CHANNEL			8
 
 
@@ -17,6 +17,7 @@ static ppbuf_t 	audio_buffer;
 static SemaphoreHandle_t audio_signal;
 static TimerHandle_t     adc_timer;
 static uint32_t 		 adc_cnt = 0;
+extern DMA_DESCRIPTOR_TypeDef dmaControlBlock[];
 
 /** internal functions */
 
@@ -25,9 +26,65 @@ static uint32_t 		 adc_cnt = 0;
  */
 static void audio_start_capture(void)
 {
-	adc_cnt = 0;
-	xTimerStart(adc_timer, 0);
+	/*
+	 * trigger dma capturing engine pointing to next free buffer
+	 */
+	DMA_ActivateBasic(AUDIO_DMA_CHANNEL,
+						true,
+						false,
+						&audio_buffer.data[audio_buffer.active][0],
+						&ADC0->SINGLEDATA,
+						AUDIO_BUFFER_SIZE);
 }
+
+
+/**
+ * @brief audio dma callback
+ */
+static void audio_dma_callback(uint32_t channel, bool primary, void *param)
+{
+	portBASE_TYPE ctw = 0;
+	BCDS_UNUSED(primary);
+
+	if(NULL==param) {
+		goto error_not_dma;
+
+	}
+
+	/* evaluate if the channel is the correct */
+	if(AUDIO_DMA_CHANNEL!=channel) {
+		goto error_not_dma;
+
+	}
+
+	SemaphoreHandle_t *sem = param;
+	audio_buffer.active ^= 0x01;
+	xSemaphoreGiveFromISR(sem, &ctw);
+	portYIELD_FROM_ISR(ctw);
+
+error_not_dma:
+	return;
+}
+
+/**
+ * @brief analog input isr
+ */
+static void audio_adc_timer(TimerHandle_t *t)
+{
+	(void)t;
+	uint16_t adc_data = (uint16_t)ADC_DataSingleGet(ADC0);
+	audio_buffer.data[audio_buffer.active][adc_cnt] = adc_data;
+	//printf("audio_adc_timer: sample value: 0x%X\n\r\n\r", adc_data);
+
+	adc_cnt++;
+	if(adc_cnt == AUDIO_BUFFER_SIZE) {
+		adc_cnt = 0;
+		xSemaphoreGive(audio_signal);
+		xTimerStop(t, 0);
+	}
+
+}
+
 
 /**
  * @brief init audio engine subsystem
@@ -53,13 +110,13 @@ static void audio_hw_init(void)
 	dma_init.hprot = 0;
 	dma_init.controlBlock = dmaControlBlock; 
 
-	DMA_FuncPtr_TypeDef cbprop = {.cbFunc = audio_dma_callback, 
+	DMA_CB_TypeDef 	cbprop = {.cbFunc = audio_dma_callback,
 								  .primary = false,
 								  .userPtr = audio_signal};
 
 	dma_channel.cb = &cbprop;
 	dma_channel.enableInt=true;
-	dma_channel.select = DMAREQ_ADC0_SCAN;
+	dma_channel.select = AUDIO_DMA_SIGNAL;
 	
 	dma_cfg.arbRate = dmaArbitrate1;
 	dma_cfg.srcInc = dmaDataIncNone;
@@ -80,33 +137,6 @@ static void audio_hw_init(void)
 	DMA_Init(&dma_cfg);
 	DMA_CfgChannel(AUDIO_DMA_CHANNEL, &dma_channel);
 	DMA_CfgDescr(AUDIO_DMA_CHANNEL, true, &dma_cfg);
-
-}
-
-/**
- * @brief audio dma callback
- */
-static void audio_dma_callback(uint32_t channel, bool primary, void *param)
-{
-	SemaphoreHandle_t *sem = param;
-}
-
-/**
- * @brief analog input isr
- */
-static void audio_adc_timer(TimerHandle_t *t)
-{
-	(void)t;
-	uint16_t adc_data = (uint16_t)ADC_DataSingleGet(ADC0);
-	audio_buffer.data[audio_buffer.active][adc_cnt] = adc_data;
-	//printf("audio_adc_timer: sample value: 0x%X\n\r\n\r", adc_data);
-
-	adc_cnt++;
-	if(adc_cnt == AUDIO_BUFFER_SIZE) {
-		adc_cnt = 0;
-		xSemaphoreGive(audio_signal);
-		xTimerStop(t, 0);
-	}
 
 }
 
@@ -138,7 +168,8 @@ static void audio_task(void *args)
 
 		/* wait new data available from ISR */
 		xSemaphoreTake(audio_signal, portMAX_DELAY);
-		//printf("%s: new audio data block arrived! \n\r", __func__);
+		printf("%s: new audio data block arrived! \n\r", __func__);
+
 
 		/*
 		 * obtains the new captured buffer an give the next
