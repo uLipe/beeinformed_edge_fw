@@ -34,21 +34,6 @@ void appInitSystem(xTimerHandle xTimer)
     assert(hw_err == RETCODE_SUCCESS);
 
 
-    /* temperature task init */
-    temp_app_init();
-
-    /* humidity task init */
-    humi_app_start();
-
-    /* pressure task init */
-    pressure_app_start();
-
-    /* starts the luminosity acquisition */
-    lumi_app_start();
-
-    /* starts the audio capturing */
-    audio_app_init();
-
     /* init the ble server */
     app_ble_init();
 }

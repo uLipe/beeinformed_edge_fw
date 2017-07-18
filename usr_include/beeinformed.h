@@ -21,7 +21,8 @@
 #include "em_device.h"
 #include "em_adc.h"
 #include "em_dma.h"
-
+#include "em_prs.h"
+#include "em_timer.h"
 
 #include "BLE_stateHandler_ih.h"
 #include "BLE_serialDriver_ih.h"

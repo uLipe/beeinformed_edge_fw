@@ -439,6 +439,24 @@ static void ble_app_task(void *args)
 	/* waits until bt stack core is ready */
 	xSemaphoreTake(ble_rdy_sema, portMAX_DELAY);
 	printf("%s: bt core stack signaled! bt app is ready! \n\r", __func__);
+	printf("%s: System Clock is: %d [Hz]! \n\r", __func__, SystemCoreClock);
+
+
+	/* starts the audio capturing */
+    audio_app_init();
+
+    /* temperature task init */
+    //temp_app_init();
+
+    /* humidity task init */
+    //humi_app_start();
+
+    /* pressure task init */
+    //pressure_app_start();
+
+    /* starts the luminosity acquisition */
+    //lumi_app_start();
+
 
 	for(;;) {
 		/* blocks until a message is avalialble */
