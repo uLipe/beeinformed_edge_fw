@@ -10,8 +10,6 @@
 
 
 /** temperature ranges */
-#define MAX_TEMP 48000
-#define MIN_TEMP  3000
 
 /**
  * @brief inits temperature acquistion app

@@ -22,15 +22,20 @@
 /** static variables */
 static const  uint8_t ble_dev_name[] = "beeinformed_edge";
 static uint8_t ble_incoming_packet[2 * sizeof(ble_data_t)] = {0};
-static uint8_t ble_outcoming_packet[sizeof(ble_data_t)] = {0};
-static uint8_t pos = 0;
-static uint8_t txpos = 0;
-static uint8_t data_remaining = 0;
-static uint16_t audio_temp_buf[AUDIO_BUFFER_SIZE] = {0};
+static uint8_t *txpos = NULL;
+static uint32_t data_remaining = 0;
+static ble_data_t ble_tx_descriptor;
+static bool ble_send_error = false;
+
+/* sensor node data holders */
+static uint16_t audio_buffer[AUDIO_SAMPLE_RATE] = {0};
+static sensor_data_t sensor_frame;
+
 
 static QueueHandle_t ble_rx_queue;
 static SemaphoreHandle_t ble_rdy_sema;
 static SemaphoreHandle_t ble_sent_sema;
+static SemaphoreHandle_t ble_sent_signal;
 static TimerHandle_t  ble_recv_timeout;
 
 
@@ -44,7 +49,7 @@ static void ble_notify_cb(BLE_connectionDetails_t conn)
 
 	switch(conn.connectionStatus) {
 		case BLE_CONNECTED_TO_DEVICE:
-			printf( "Device connected: %02x:%02x:%02x:%02x:%02x:%02x \r\n",
+			printf(" %s: Device connected: %02x:%02x:%02x:%02x:%02x:%02x \r\n", __func__,
 				 conn.remoteAddress.addr[0],
 				 conn.remoteAddress.addr[1],
 				 conn.remoteAddress.addr[2],
@@ -54,9 +59,8 @@ static void ble_notify_cb(BLE_connectionDetails_t conn)
 			break;
 
 		case BLE_DISCONNECTED_FROM_DEVICE:
-			printf("Device disconnected!\r\n");
+			printf("%s: Device disconnected!\r\n", __func__);
 			break;
-
 
 		default:
 			break;
@@ -73,10 +77,7 @@ static void ble_notify_cb(BLE_connectionDetails_t conn)
 static void ble_recv_timeout_cb(TimerHandle_t *t)
 {
 	(void)t;
-	pos = 0;
-	memset(&ble_incoming_packet, 0, sizeof(ble_incoming_packet));
 	printf("%s: Packet reception timeout! \n\r", __func__);
-
 }
 
 
@@ -95,21 +96,10 @@ static void ble_alpw_data_xch_cb(BleAlpwDataExchangeEvent ev, BleStatus sts,
 		BleAlpwDataExchangeServerRxData *rx =
 				(BleAlpwDataExchangeServerRxData *) params;
 
-		xTimerStart(ble_recv_timeout, 0);
-
 		/* fill the packet */
-		memcpy(&ble_incoming_packet[pos], rx->rxData, rx->rxDataLen);
+		memcpy(&ble_incoming_packet[0], rx->rxData, rx->rxDataLen);
 		printf("%s: Raw data arrived len: %d! \n\r", __func__, rx->rxDataLen);
-
-
-		pos += rx->rxDataLen;
-		if(pos >= sizeof(ble_data_t)) {
-			/* send packet to app task */
-			xTimerStop(ble_recv_timeout, 0);
-			pos = 0;
-			xQueueSend(ble_rx_queue, &ble_incoming_packet, 0);
-			printf("%s: complete packet arrived! \n\r", __func__);
-		}
+		xQueueSend(ble_rx_queue, &ble_incoming_packet, 0);
 		PTD_pinOutToggle(PTD_PORT_LED_ORANGE,PTD_PIN_LED_ORANGE);
 	}
 
@@ -117,36 +107,40 @@ static void ble_alpw_data_xch_cb(BleAlpwDataExchangeEvent ev, BleStatus sts,
 	else if(ev == BLEALPWDATAEXCHANGE_EVENT_TXCOMPLETE) {
 		PTD_pinOutToggle(PTD_PORT_LED_YELLOW,PTD_PIN_LED_YELLOW);
 
+		/* advances to next packet */
+		data_remaining -= ble_tx_descriptor.payload_size;
+		txpos+= ble_tx_descriptor.payload_size;
 
 		if(data_remaining) {
 
 
-			uint8_t size = (data_remaining >= BLE_DATA_SVC_MAX_SIZE) ?
-							BLE_DATA_SVC_MAX_SIZE 					 :
-							data_remaining;
+			ble_tx_descriptor.payload_size = (data_remaining >= PACKET_MAX_PAYLOAD) ?
+											  PACKET_MAX_PAYLOAD 					 :
+											  data_remaining;
 
-			data_remaining -= size;
-			txpos +=size;
+			/*
+			 * If data has been splitten in more than 1 packets
+			 * the further one will carry a special type called
+			 * sequence with 0 packet number, which can be used
+			 * by client to identify out of sync transmission
+			 */
+			ble_tx_descriptor.type = k_sequence_packet;
+			ble_tx_descriptor.pack_amount = 0;
 
-			if(BLE_sendData(&ble_outcoming_packet[txpos], size) !=
+			if(BLE_sendData((uint8_t *)&ble_tx_descriptor, sizeof(ble_data_t)) !=
 					BLE_SUCCESS	) {
+
 				/* failed to send, reset env */
 				data_remaining = 0;
 				txpos = 0;
 				printf("%s: failed to send packet  \n\r", __func__);
-				xSemaphoreGive(ble_sent_sema);
+				ble_send_error = true;
+				xSemaphoreGive(ble_sent_signal);
 
-			}
-
-			/* if was last packet ends transmission */
-			if(size < BLE_DATA_SVC_MAX_SIZE) {
-				data_remaining = 0;
-				printf("%s: complete packet transmitted! \n\r", __func__);
-				xSemaphoreGive(ble_sent_sema);
 			}
 		} else {
 			printf("%s: complete packet transmitted! \n\r", __func__);
-			xSemaphoreGive(ble_sent_sema);
+			xSemaphoreGive(ble_sent_signal);
 		}
 		PTD_pinOutToggle(PTD_PORT_LED_YELLOW,PTD_PIN_LED_YELLOW);
 	}
@@ -166,25 +160,57 @@ static void ble_app_service_register_cb (void)
 /**
  * @brief sends a packet via BLE interface
  */
-static void ble_send_packet(ble_data_t *b)
+static void ble_send_packet(ble_data_t *b,  uint8_t *data, uint32_t noof_packets)
 {
 	if(b == NULL)
 		goto cleanup;
 
-	memcpy(&ble_outcoming_packet, b, sizeof(ble_data_t));
-	txpos = 0;
-	data_remaining = sizeof(ble_data_t) - BLE_DATA_SVC_MAX_SIZE;
+	if(data == NULL)
+		goto cleanup;
 
-	BleStatus sts = BLE_sendData(&ble_outcoming_packet[0], BLE_DATA_SVC_MAX_SIZE);
-	//assert(sts != BLESTATUS_FAILED);
+	if(noof_packets == 0)
+		goto cleanup;
 
-	portBASE_TYPE err = xSemaphoreTake(ble_sent_sema, BLE_SEND_TIMEOUT);
-	if(err != pdTRUE) {
-		/* reset packet sending environment */
-		printf("%s: Timeout!\n\r", __func__);
-		txpos = 0;
-		data_remaining = 0;
+
+	/* protect from race condition */
+	if(1/*xSemaphoreTake(ble_sent_sema, portMAX_DELAY)*/) {
+		/* prepare for transmission */
+		memcpy(&ble_tx_descriptor, b, sizeof(ble_data_t));
+		txpos = data;
+		data_remaining = noof_packets;
+		ble_tx_descriptor.pack_amount = data_remaining;
+		printf("%s: sending data through ble! \n\r type: %u \n\r id: %u \n\r packs: %u \n\r",
+				__func__,
+				ble_tx_descriptor.type,
+				ble_tx_descriptor.id,
+				ble_tx_descriptor.pack_amount);
+
+		/* round packets qty up to avoid loss of data out of
+		 * PACKET_MAX_PAYLOAD boundary
+		 */
+		ble_tx_descriptor.pack_amount = (noof_packets / (PACKET_MAX_PAYLOAD)) + 1;
+		ble_tx_descriptor.payload_size = noof_packets < PACKET_MAX_PAYLOAD ?
+														noof_packets :
+														PACKET_MAX_PAYLOAD;
+
+		memcpy(&ble_tx_descriptor.pack_data, txpos, PACKET_MAX_PAYLOAD);
+		if(BLE_sendData((uint8_t *)&ble_tx_descriptor, sizeof(ble_data_t)) != BLE_SUCCESS) {
+			printf("%s: failed to transmit, please retry!", __func__);
+			goto cleanup;
+
+		} else {
+			/* wait until all packets goes off BLE buffer */
+			xSemaphoreTake(ble_sent_signal, portMAX_DELAY);
+
+			/* Give mutex for next requester */
+			//xSemaphoreGive(ble_sent_sema);
+
+			printf("%s: done!", __func__);
+		}
+
+
 	}
+
 cleanup:
 	return;
 }
@@ -223,107 +249,54 @@ static int ble_init(void)
 	return(err);
 }
 
+
 /**
- * handle_temperature()
- * @brief handle temperature request from gateway
+ * func()
+ * @brief
  * @param
  * @reuturn
  */
-static void handle_temperature(ble_data_t *b)
+static void ble_on_sensor_acquired(sensor_data_t *d, sensor_status_t s, void *user_data)
 {
-	ble_data_t resp={0};
-	(void )b;
+	ble_data_t reply;
 
-	resp.type = k_data_packet;
-	resp.id = k_get_temp;
-	resp.pack_nbr = 1;
-	resp.pack_amount = 1;
-	resp.payload_size = sizeof(data_env.temperature);
+	reply.type = k_data_packet;
+	reply.id   = (edge_cmds_t) user_data;
 
-	memcpy(&resp.pack_data, &data_env.temperature, sizeof(data_env.temperature));
-
-
-	/* send the requested data over ble */
-	ble_send_packet(&resp);
-
+	if(s == ksensor_ok) {
+		ble_send_packet(&reply, (uint8_t *)d, sizeof(sensor_data_t));
+	}
 }
 
 /**
- * handle_pressure()
- * @brief handle pressure data request from client
+ * func()
+ * @brief
  * @param
  * @reuturn
  */
-static inline void handle_pressure(ble_data_t *b)
+static void ble_on_audio_acquired(void *user_data, audio_status_t s)
 {
-	ble_data_t resp={0};
-	(void )b;
+	ble_data_t reply;
 
-	resp.type = k_data_packet;
-	resp.id = k_get_press;
-	resp.pack_nbr = 1;
-	resp.pack_amount = 1;
-	resp.payload_size = sizeof(data_env.pressure);
+	reply.type = k_data_packet;
+	reply.id   = (edge_cmds_t) user_data;
 
-
-	memcpy(&resp.pack_data, &data_env.pressure, sizeof(data_env.pressure));
-
-
-	/* send the requested data over ble */
-	ble_send_packet(&resp);
+	if(s == kaudio_acquisition_ok) {
+		ble_send_packet(&reply, (uint8_t *)audio_buffer, sizeof(audio_buffer));
+	}
 }
 
 
 /**
- * handle_humi()
- * @brief Handle relatile humidity request from client
+ * handle_sensors()
+ * @brief handles the sensor readings request from client
  * @param
  * @reuturn
  */
-static inline void handle_humi(ble_data_t *b)
+static inline void handle_sensors(ble_data_t *b)
 {
-	ble_data_t resp={0};
 	(void )b;
-
-	resp.type = k_data_packet;
-	resp.id = k_get_humi;
-	resp.pack_nbr = 1;
-	resp.pack_amount = 1;
-	resp.payload_size = sizeof(data_env.humidity);
-
-
-	memcpy(&resp.pack_data, &data_env.humidity, sizeof(data_env.humidity));
-
-
-	/* send the requested data over ble */
-	ble_send_packet(&resp);
-}
-
-
-/**
- * handle_lumi()
- * @brief handles the luminosity request from client
- * @param
- * @reuturn
- */
-static inline void handle_lumi(ble_data_t *b)
-{
-	ble_data_t resp={0};
-	(void )b;
-
-
-	resp.type = k_data_packet;
-	resp.id = k_get_lumi;
-	resp.pack_nbr = 1;
-	resp.pack_amount = 1;
-	resp.payload_size = sizeof(data_env.luminosity);
-
-
-	memcpy(&resp.pack_data, &data_env.luminosity, sizeof(data_env.luminosity));
-
-
-	/* send the requested data over ble */
-	ble_send_packet(&resp);
+	sensor_trigger_reading(&sensor_frame, ble_on_sensor_acquired, &b->id);
 }
 
 
@@ -338,35 +311,10 @@ static inline void handle_audio(ble_data_t *b)
 	/* for audio the process to send data is a bit more complex
 	 * first we need to know how much packets we need to send
 	 */
-	(void )b;
-	uint32_t packets = AUDIO_BUFFER_SIZE / BLE_DATA_SVC_MAX_SIZE;
-	uint32_t txpos = 0;
-	ble_data_t resp={0};
+	(void)b;
 
-	/* copy available buffer atomically as possible to
-	 * avoid corruption
-	 */
-	portENTER_CRITICAL();
-	memcpy(&audio_temp_buf, data_env.audio_data, sizeof(audio_temp_buf));
-	portEXIT_CRITICAL();
-
-	resp.type = k_data_packet;
-	resp.id = k_get_audio;
-	resp.pack_nbr = 1;
-	resp.pack_amount = packets;
-	resp.payload_size = BLE_DATA_SVC_MAX_SIZE;
-
-	/* dispatch the packet, 20 bytes at time */
-	do {
-		memcpy(&resp.pack_data, &audio_temp_buf[txpos], BLE_DATA_SVC_MAX_SIZE);
-		ble_send_packet(&resp);
-
-		resp.pack_nbr++;
-		txpos += BLE_DATA_SVC_MAX_SIZE;
-		packets--;
-		printf("%s: Packets remaining: %d \n\r", __func__, packets);
-
-	}while(packets);
+	/* start audio capture */
+	audio_start_record(&audio_buffer[0], 1, ble_on_audio_acquired, &b->id);
 }
 
 /**
@@ -377,26 +325,14 @@ static void ble_cmd_handler(ble_data_t *b)
 	edge_cmds_t cmd = (edge_cmds_t)b->id;
 
 	switch(cmd) {
-	case k_get_temp:
-		printf("%s: Client is requesting temperature over BLE! \n\r", __func__);
-		handle_temperature(b);
-
-		break;
-	case k_get_humi:
+	case k_get_sensors:
 		printf("%s: Client is requesting luminosity over BLE! \n\r", __func__);
-		handle_humi(b);
+		handle_sensors(b);
 		break;
-	case k_get_press:
-		printf("%s: Client is requesting pressure over BLE! \n\r", __func__);
-		handle_pressure(b);
-		break;
+
 	case k_get_audio:
 		printf("%s: Client is requesting audio over BLE! \n\r", __func__);
 		handle_audio(b);
-		break;
-	case k_get_lumi:
-		printf("%s: Client is requesting luminosity over BLE! \n\r", __func__);
-		handle_lumi(b);
 		break;
 	default:
 		printf("%s: Unknown command, packet will not processed! \n\r", __func__);
@@ -439,24 +375,12 @@ static void ble_app_task(void *args)
 	/* waits until bt stack core is ready */
 	xSemaphoreTake(ble_rdy_sema, portMAX_DELAY);
 	printf("%s: bt core stack signaled! bt app is ready! \n\r", __func__);
-	printf("%s: System Clock is: %d [Hz]! \n\r", __func__, SystemCoreClock);
-
+	printf("%s: System Clock is: %lu [Hz]! \n\r", __func__, SystemCoreClock);
 
 	/* starts the audio capturing */
     audio_app_init();
-
     /* temperature task init */
-    //temp_app_init();
-
-    /* humidity task init */
-    //humi_app_start();
-
-    /* pressure task init */
-    //pressure_app_start();
-
-    /* starts the luminosity acquisition */
-    //lumi_app_start();
-
+    sensor_app_start();
 
 	for(;;) {
 		/* blocks until a message is avalialble */
@@ -475,8 +399,6 @@ static void ble_app_task(void *args)
 			 */
 			packet.id = 0xFF;
 		}
-
-
 		ble_cmd_handler(&packet);
 	}
 }
@@ -494,7 +416,10 @@ void app_ble_init(void)
 	ble_rdy_sema = xSemaphoreCreateBinary();
 	assert(ble_rdy_sema != NULL);
 
-	ble_sent_sema = xSemaphoreCreateBinary();
+	ble_sent_signal = xSemaphoreCreateBinary();
+	assert(ble_sent_signal != NULL);
+
+	ble_sent_sema = xSemaphoreCreateMutex();
 	assert(ble_sent_sema != NULL);
 
 	/* create queue/timers for communication channel */

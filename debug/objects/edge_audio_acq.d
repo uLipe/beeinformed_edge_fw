@@ -1,6 +1,6 @@
-/home/venturus/Documents/devel/beeinformed_edge_fw/debug/objects/edge_audio_acq.o: \
- /home/venturus/Documents/devel/beeinformed_edge_fw/source/edge_audio_acq.c \
- /home/venturus/Documents/devel/beeinformed_edge_fw/source/../usr_include/beeinformed.h \
+/Users/user/Documents/devel/beeinformed_edge_fw/debug/objects/edge_audio_acq.o: \
+ /Users/user/Documents/devel/beeinformed_edge_fw/source/edge_audio_acq.c \
+ /Users/user/Documents/devel/beeinformed_edge_fw/source/../usr_include/beeinformed.h \
  ../Platform/Basics/include/BCDS_Basics.h \
  ../Platform/BLE/include/BLE_stateHandler_ih.h \
  ../Platform/BLE/include/BLE_serialDriver_ih.h \
@@ -21,15 +21,11 @@
  ../Platform/Peripherals/include/PTD_portDriver_ih.h \
  ../Common/./config/PTD_portDriver_ph.h \
  ../Platform/Peripherals/include/ADC_ih.h \
- /home/venturus/Documents/devel/beeinformed_edge_fw/source/../usr_include/edge_data_env.h \
- /home/venturus/Documents/devel/beeinformed_edge_fw/source/../usr_include/edge_audio_acq.h \
- /home/venturus/Documents/devel/beeinformed_edge_fw/source/../usr_include/edge_humi_acq.h \
- /home/venturus/Documents/devel/beeinformed_edge_fw/source/../usr_include/edge_lumi_acq.h \
- /home/venturus/Documents/devel/beeinformed_edge_fw/source/../usr_include/edge_press_acq.h \
- /home/venturus/Documents/devel/beeinformed_edge_fw/source/../usr_include/edge_temp_acq.h \
- /home/venturus/Documents/devel/beeinformed_edge_fw/source/../usr_include/app_ble.h
+ /Users/user/Documents/devel/beeinformed_edge_fw/source/../usr_include/edge_audio_acq.h \
+ /Users/user/Documents/devel/beeinformed_edge_fw/source/../usr_include/edge_sensors.h \
+ /Users/user/Documents/devel/beeinformed_edge_fw/source/../usr_include/app_ble.h
 
-/home/venturus/Documents/devel/beeinformed_edge_fw/source/../usr_include/beeinformed.h:
+/Users/user/Documents/devel/beeinformed_edge_fw/source/../usr_include/beeinformed.h:
 
 ../Platform/Basics/include/BCDS_Basics.h:
 
@@ -71,16 +67,8 @@
 
 ../Platform/Peripherals/include/ADC_ih.h:
 
-/home/venturus/Documents/devel/beeinformed_edge_fw/source/../usr_include/edge_data_env.h:
+/Users/user/Documents/devel/beeinformed_edge_fw/source/../usr_include/edge_audio_acq.h:
 
-/home/venturus/Documents/devel/beeinformed_edge_fw/source/../usr_include/edge_audio_acq.h:
+/Users/user/Documents/devel/beeinformed_edge_fw/source/../usr_include/edge_sensors.h:
 
-/home/venturus/Documents/devel/beeinformed_edge_fw/source/../usr_include/edge_humi_acq.h:
-
-/home/venturus/Documents/devel/beeinformed_edge_fw/source/../usr_include/edge_lumi_acq.h:
-
-/home/venturus/Documents/devel/beeinformed_edge_fw/source/../usr_include/edge_press_acq.h:
-
-/home/venturus/Documents/devel/beeinformed_edge_fw/source/../usr_include/edge_temp_acq.h:
-
-/home/venturus/Documents/devel/beeinformed_edge_fw/source/../usr_include/app_ble.h:
+/Users/user/Documents/devel/beeinformed_edge_fw/source/../usr_include/app_ble.h:

@@ -16,7 +16,9 @@
 static volatile ppbuf_t audio_buffer;
 static SemaphoreHandle_t audio_signal;
 static uint16_t adc_cnt = 0;
-static TaskHandle_t audio_tcb;
+static QueueHandle_t audio_request;
+static bool audio_rdy = false;
+
 //extern DMA_DESCRIPTOR_TypeDef dmaControlBlock[];
 
 /** internal functions */
@@ -43,10 +45,12 @@ static TaskHandle_t audio_tcb;
  */
 void ADC0_IRQHandler(void)
 {
-	ADC_IntClear(ADC0, ADC_IFC_SINGLE);
 	/* collect the samples */
 	audio_buffer.data[audio_buffer.active][adc_cnt] = ADC_DataSingleGet(ADC0);
+	//printf("%s: Data mic captured: %u \n\r", __func__, audio_buffer.data[audio_buffer.active][adc_cnt]);
 	adc_cnt++;
+	ADC_IntClear(ADC0, ADC_IFC_SINGLE);
+
 	if(adc_cnt >= AUDIO_BUFFER_SIZE) {
 		/* samples collected notify the audio capture task */
 		TIMER_Enable(TIMER0, false);
@@ -187,11 +191,14 @@ static void audio_init_adc(void)
 	seq.rep   = false;
 	seq.prsEnable =true;
 	seq.resolution = adcRes12Bit;
-	seq.reference = adcRefVDD;
+	seq.reference = adcRef1V25;
 	seq.prsSel = adcPRSSELCh0;
 	seq.acqTime = adcAcqTime4;
 
 	ADC_IntDisable(ADC0, ADC_IEN_SINGLE);
+	NVIC_DisableIRQ(ADC0_IRQn);
+	NVIC_SetPriority(ADC0_IRQn, 254);
+
 	ADC_InitSingle(ADC0, &seq);
 
 	ADC_IntEnable(ADC0, ADC_IEN_SINGLE);
@@ -219,8 +226,14 @@ static void audio_task(void *args)
 	uint8_t active;
 	(void)args;
 	audio_signal = xSemaphoreCreateBinary();
+	audio_request = xQueueCreate(AUDIO_MAX_RECORDS, sizeof(audio_request_t));
 	assert(audio_signal != NULL);
+	assert(audio_request != NULL);
 
+
+	audio_request_t current_req = {0};
+	uint16_t noof_blocks = 0;
+	uint16_t *audio_ptr = NULL;
 
 	/* assign the available data to env */
 	audio_buffer.active = 0;
@@ -229,13 +242,67 @@ static void audio_task(void *args)
 	 * and starts to listen the acoustic sensor
 	 */
 	audio_hw_init();
-	active = audio_start_capture();
+	audio_rdy = true;
 
 	for(;;){
-		/* wait new data available from ISR */
-		xSemaphoreTake(audio_signal, portMAX_DELAY);
-		printf("%s: new audio data block arrived! \n\r", __func__);
+
+		/* wait for request of app */
+		xQueueReceive(audio_request, &current_req, portMAX_DELAY);
+
+		/* samples file needs to be valid */
+		if(current_req.samples == NULL) {
+			printf("%s: invalid audio acquisition file! \n\r", __func__);
+			if(current_req.cb != NULL) {
+				current_req.cb(current_req.user_data, kaudio_sample_invalid);
+			}
+			continue;
+		}
+
+		/* file size in seconds needs to be valid also */
+		if(!current_req.seconds) {
+			printf("%s: invalid period of  acquisition! \n\r", __func__);
+			if(current_req.cb != NULL) {
+				current_req.cb(current_req.user_data, kaudio_sec_invalid);
+			}
+			continue;
+		}
+
+
+		/* calculate the noof blocks for required audio window size */
+		noof_blocks = (current_req.seconds * (AUDIO_SAMPLE_RATE))/AUDIO_BUFFER_SIZE;
+		printf("%s: audio acquisition block size, block: %u \n\r", __func__, noof_blocks);
+
+		audio_ptr = current_req.samples;
+
+		/*start acquisition */
 		active = audio_start_capture();
+
+
+
+		 do {
+			/* wait new data available from ISR */
+			xSemaphoreTake(audio_signal, portMAX_DELAY);
+
+			/* data arrived, triggers the next capture stage, and
+			 * perform copy of new arrived samples to the audio file
+			 */
+			active = audio_start_capture();
+			memcpy(audio_ptr, &audio_buffer.data[active], sizeof(uint16_t) * AUDIO_BUFFER_SIZE);
+			audio_ptr += AUDIO_BUFFER_SIZE;
+			noof_blocks--;
+
+			printf("%s: new audio data block arrived, block: %u \n\r", __func__, noof_blocks);
+		}while(noof_blocks > 0);
+
+
+		/* once audio is captured, notify to the asynch callback
+		 * that the acquisition is complete and resides in
+		 * previous passed file
+		 */
+		if(current_req.cb != NULL) {
+			current_req.cb(current_req.user_data, kaudio_acquisition_ok);
+		}
+
 	}
 }
 
@@ -244,11 +311,42 @@ void audio_app_init(void)
 {
 	portBASE_TYPE err;
 
-	err = xTaskCreate(audio_task,"audio_app",AUDIO_TASK_STK_SIZE,NULL,AUDIO_TASK_PRIO,&audio_tcb);
+	err = xTaskCreate(audio_task,"audio_app",AUDIO_TASK_STK_SIZE,NULL,AUDIO_TASK_PRIO,NULL);
 	assert(err == pdPASS);
 }
 
-void audio_start_record(void)
+bool audio_start_record(uint16_t *outfile, uint16_t seconds, audio_complete_callback_t cb, void *user_data)
 {
-	//vTaskResume(audio_tcb);
+	bool ret = false;
+
+	/* ignore call if audio is initializing or not configured */
+	if(!audio_rdy)
+		goto cleanup;
+
+	/* validate arguments */
+	if(outfile == NULL)
+		goto cleanup;
+
+	if(!seconds)
+		goto cleanup;
+
+	if(!cb)
+		goto cleanup;
+
+	audio_request_t req;
+	req.samples = outfile;
+	req.seconds = seconds;
+	req.cb = cb;
+	req.user_data = user_data;
+
+	if(xQueueSend(audio_request, &req, 0) != pdPASS) {
+		if(cb) {
+			cb(user_data, kaudio_unk_error);
+		}
+	} else {
+		ret = true;
+	}
+
+cleanup:
+	return(ret);
 }

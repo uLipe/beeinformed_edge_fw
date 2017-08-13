@@ -22,14 +22,9 @@ export BCDS_XDK_INCLUDES = \
 export BCDS_XDK_APP_SOURCE_FILES = \
 	$(BCDS_APP_SOURCE_DIR)/main.c \
 	$(BCDS_APP_SOURCE_DIR)/app_ble.c \
-	$(BCDS_APP_SOURCE_DIR)/XdkApplicationTemplate.c\
-	$(BCDS_APP_SOURCE_DIR)/edge_data_env.c \
-	$(BCDS_APP_SOURCE_DIR)/edge_temp_acq.c\
-	$(BCDS_APP_SOURCE_DIR)/edge_humi_acq.c\
-	$(BCDS_APP_SOURCE_DIR)/edge_press_acq.c\
-	$(BCDS_APP_SOURCE_DIR)/edge_lumi_acq.c\
+	$(BCDS_APP_SOURCE_DIR)/beeinformed.c\
+	$(BCDS_APP_SOURCE_DIR)/edge_sensors.c\
 	$(BCDS_APP_SOURCE_DIR)/edge_audio_acq.c\
-	
 	
 
 .PHONY: clean	debug release flash_debug_bin flash_release_bin
