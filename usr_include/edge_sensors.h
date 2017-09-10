@@ -29,7 +29,7 @@ typedef enum {
 
 /* sensor data acquisition structure */
 typedef struct {
-	int32_t temperature;
+	int32_t  temperature;
 	uint32_t pressure;
 	uint32_t luminosity;
 	uint32_t humidity;

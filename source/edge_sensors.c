@@ -57,7 +57,7 @@ static void sensors_task(void *args)
 	sensors_hw_init();
 	sensors_rdy = true;
 
-	printf("%s: started temperature applicaton task!! \n\r", __func__);
+	printf("%s: started sensor applicaton task!! \n\r", __func__);
 
 	sensor_req_t req = {0};
 

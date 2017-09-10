@@ -8,7 +8,7 @@
 #include "../usr_include/beeinformed.h"
 
 /** task creation parameters */
-#define BLE_APP_STK_SIZE			640
+#define BLE_APP_STK_SIZE			372
 #define BLE_APP_PRIO				(configMAX_PRIORITIES - 3)
 #define BLE_HCI_WORK_PRIO			(configMAX_PRIORITIES - 4)
 #define BLE_HCI_HIGH_PRIO			(configMAX_PRIORITIES - 2)
@@ -162,6 +162,8 @@ static void ble_app_service_register_cb (void)
  */
 static void ble_send_packet(ble_data_t *b,  uint8_t *data, uint32_t noof_packets)
 {
+	xSemaphoreTake(ble_sent_sema, portMAX_DELAY);
+
 	if(b == NULL)
 		goto cleanup;
 
@@ -171,9 +173,12 @@ static void ble_send_packet(ble_data_t *b,  uint8_t *data, uint32_t noof_packets
 	if(noof_packets == 0)
 		goto cleanup;
 
+	if(noof_packets > (255 * PACKET_MAX_PAYLOAD) )
+		goto cleanup;
+
 
 	/* protect from race condition */
-	if(1/*xSemaphoreTake(ble_sent_sema, portMAX_DELAY)*/) {
+	if(1) {
 		/* prepare for transmission */
 		memcpy(&ble_tx_descriptor, b, sizeof(ble_data_t));
 		txpos = data;
@@ -188,7 +193,12 @@ static void ble_send_packet(ble_data_t *b,  uint8_t *data, uint32_t noof_packets
 		/* round packets qty up to avoid loss of data out of
 		 * PACKET_MAX_PAYLOAD boundary
 		 */
-		ble_tx_descriptor.pack_amount = (noof_packets / (PACKET_MAX_PAYLOAD)) + 1;
+		if((noof_packets % PACKET_MAX_PAYLOAD) == 0) {
+			ble_tx_descriptor.pack_amount = (noof_packets / (PACKET_MAX_PAYLOAD));
+		} else {
+			ble_tx_descriptor.pack_amount = (noof_packets / (PACKET_MAX_PAYLOAD)) + 1;
+		}
+
 		ble_tx_descriptor.payload_size = noof_packets < PACKET_MAX_PAYLOAD ?
 														noof_packets :
 														PACKET_MAX_PAYLOAD;
@@ -202,8 +212,6 @@ static void ble_send_packet(ble_data_t *b,  uint8_t *data, uint32_t noof_packets
 			/* wait until all packets goes off BLE buffer */
 			xSemaphoreTake(ble_sent_signal, portMAX_DELAY);
 
-			/* Give mutex for next requester */
-			//xSemaphoreGive(ble_sent_sema);
 
 			printf("%s: done!", __func__);
 		}
@@ -212,6 +220,8 @@ static void ble_send_packet(ble_data_t *b,  uint8_t *data, uint32_t noof_packets
 	}
 
 cleanup:
+	/* Give mutex for next requester */
+	xSemaphoreGive(ble_sent_sema);
 	return;
 }
 
@@ -236,7 +246,6 @@ static int ble_init(void)
 	/* register data exchange service */
 	BLE_status sts = BLE_customServiceRegistry(ble_app_service_register_cb);
 	assert(sts != BLESTATUS_FAILED);
-
 
 	/* sets the device name */
 	ble_ret = BLE_setDeviceName((uint8_t *)ble_dev_name, sizeof(ble_dev_name));
@@ -282,7 +291,7 @@ static void ble_on_audio_acquired(void *user_data, audio_status_t s)
 	reply.id   = (edge_cmds_t) user_data;
 
 	if(s == kaudio_acquisition_ok) {
-		ble_send_packet(&reply, (uint8_t *)audio_buffer, sizeof(audio_buffer));
+		ble_send_packet(&reply, (uint8_t *)audio_buffer, 255);
 	}
 }
 
@@ -346,18 +355,7 @@ static void ble_hci_task(void *args)
 
 	for(;;) {
 		/* run the HCI and core processing stack */
-		BLE_return_t hci_err = BLE_hciReceiveData();
-		if(hci_err != BLE_STATUS_SUCCESS) {
-			/* if no data pending reduces the hci task priority */
-			vTaskPrioritySet(xTaskGetCurrentTaskHandle(), BLE_HCI_WORK_PRIO);
-			//printf("%s: no activity on hci bus! \n\r", __func__);
-		} else {
-			/* new data arrived, so arises the task priority */
-			vTaskPrioritySet(xTaskGetCurrentTaskHandle(), BLE_HCI_HIGH_PRIO);
-			//printf("%s: new activity on hci bus! \n\r", __func__);
-		}
-
-		BLE_coreStateMachine();
+		BLE_hciReceiveData();
 	}
 }
 
