@@ -9,7 +9,7 @@
 
 /* application task definitions */
 #define SENSOR_TASK_STK_SIZE			256
-#define SENSOR_TASK_PRIO				(configMAX_PRIORITIES - 3)
+#define SENSOR_TASK_PRIO				(14)
 
 
 /** private variables */
@@ -40,6 +40,9 @@ static void sensors_hw_init(void)
     hw_err = LightSensor_setContinuousMode(xdkLightSensor_MAX44009_Handle,
     			LIGHTSENSOR_MAX44009_ENABLE_MODE);
     assert(hw_err == RETCODE_SUCCESS);
+
+
+
 }
 
 

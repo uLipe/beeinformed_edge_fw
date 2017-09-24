@@ -1,6 +1,6 @@
-/**
-* Licensee agrees that the example code provided to Licensee has been developed and released by Bosch solely as an example to be used as a potential reference for Licensee’s application development. 
-* Fitness and suitability of the example code for any use within Licensee’s applications need to be verified by Licensee on its own authority by taking appropriate state of the art actions and measures (e.g. by means of quality assurance measures).
+/*
+* Licensee agrees that the example code provided to Licensee has been developed and released by Bosch solely as an example to be used as a potential reference for Licenseeï¿½s application development. 
+* Fitness and suitability of the example code for any use within Licenseeï¿½s applications need to be verified by Licensee on its own authority by taking appropriate state of the art actions and measures (e.g. by means of quality assurance measures).
 * Licensee shall be responsible for conducting the development of its applications as well as integration of parts of the example code into such applications, taking into account the state of the art of technology and any statutory regulations and provisions applicable for such applications. Compliance with the functional system requirements and testing there of (including validation of information/data security aspects and functional safety) and release shall be solely incumbent upon Licensee. 
 * For the avoidance of doubt, Licensee shall be responsible and fully liable for the applications and any distribution of such applications into the market.
 * 
@@ -35,16 +35,49 @@
 */
 
 /* system header files */
+#include <stdio.h>
 #include "BCDS_Basics.h"
 
 /* additional interface header files */
 #include "XdkSystemStartup.h"
+#include "BCDS_Assert.h"
+#include "BCDS_CmdProcessor.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "../usr_include/beeinformed.h"
 
 /* own header files */
+
+/* global variables ********************************************************* */
+static CmdProcessor_T MainCmdProcessor;
 
 /* functions */
 
 int main(void)
 {
-    systemStartup();
+    /* Mapping Default Error Handling function */
+    Retcode_T returnValue = Retcode_initialize(DefaultErrorHandlingFunc);
+    if (RETCODE_OK == returnValue)
+    {
+        returnValue = systemStartup();
+    }
+    if (RETCODE_OK == returnValue)
+    {
+        returnValue = CmdProcessor_initialize(&MainCmdProcessor, (char *) "MainCmdProcessor", TASK_PRIO_MAIN_CMD_PROCESSOR, TASK_STACK_SIZE_MAIN_CMD_PROCESSOR, TASK_Q_LEN_MAIN_CMD_PROCESSOR);
+    }
+    if (RETCODE_OK == returnValue)
+    {
+        /* Here we enqueue the application initialization into the command
+         * processor, such that the initialization function will be invoked
+         * once the RTOS scheduler is started below.
+         */
+        returnValue = CmdProcessor_enqueue(&MainCmdProcessor, appInitSystem, &MainCmdProcessor, UINT32_C(0));
+    }
+    if (RETCODE_OK != returnValue)
+    {
+        printf("System Startup failed");
+        assert(false);
+    }
+    /* start scheduler */
+    vTaskStartScheduler();
 }

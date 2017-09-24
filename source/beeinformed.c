@@ -15,12 +15,19 @@
 /**
  * @brief prepare whole appplication
  */
-void appInitSystem(xTimerHandle xTimer)
-{
-    (void) (xTimer);
 
+void appInitSystem(void * CmdProcessorHandle, uint32_t param2)
+{
+    if (!CmdProcessorHandle)
+    {
+        printf("Command processor handle is null \n\r");
+        assert(false);
+    }
     /* init the ble server */
     app_ble_init();
+
+    BCDS_UNUSED(param2);
 }
+
 
 /** ************************************************************************* */

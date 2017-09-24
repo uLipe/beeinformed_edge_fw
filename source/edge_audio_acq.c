@@ -7,7 +7,7 @@
 #include "../usr_include/beeinformed.h"
 
 #define AUDIO_TASK_STK_SIZE			256
-#define AUDIO_TASK_PRIO				(configMAX_PRIORITIES - 2)
+#define AUDIO_TASK_PRIO				(15)
 //#define AUDIO_DMA_SIGNAL			DMAREQ_ADC0_SINGLE
 //#define AUDIO_DMA_CHANNEL			8
 
@@ -177,8 +177,16 @@ static void audio_init_adc(void)
 	ADC_Init_TypeDef cfg = ADC_INIT_DEFAULT;
 
 	/* turn on the AKU340 power supply */
-	PTD_pinOutSet(PTD_PORT_AKU340_VDD,PTD_PIN_AKU340_VDD);
+//	GPIO_PinModeSet(gpioPortD, 9, gpioModePushPull, 0);
+//    GPIO_PinModeSet(gpioPortD, 4, gpioModePushPullDrive, 0);
 
+//	Board_WakeupPowerSupply2V5(MIC_AKU340);
+
+//	GPIO_PinOutSet(gpioPortD, 9);
+//  GPIO_PinOutClear(gpioPortD, 4);
+
+	BSP_Mic_AKU340_Connect();
+	BSP_Mic_AKU340_Enable();
 
 	/* clocks and inits the ADC */
 	CMU_ClockEnable(cmuClock_ADC0,true);
@@ -191,7 +199,7 @@ static void audio_init_adc(void)
 	seq.rep   = false;
 	seq.prsEnable =true;
 	seq.resolution = adcRes12Bit;
-	seq.reference = adcRef1V25;
+	seq.reference = adcRef2V5;
 	seq.prsSel = adcPRSSELCh0;
 	seq.acqTime = adcAcqTime4;
 

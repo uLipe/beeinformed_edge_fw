@@ -9,13 +9,13 @@
 
 /** task creation parameters */
 #define BLE_APP_STK_SIZE			372
-#define BLE_APP_PRIO				(configMAX_PRIORITIES - 3)
-#define BLE_HCI_WORK_PRIO			(configMAX_PRIORITIES - 4)
-#define BLE_HCI_HIGH_PRIO			(configMAX_PRIORITIES - 2)
+#define BLE_APP_PRIO				(14)
 #define BLE_QUEUE_SLOTS				(32)
 #define BLE_DATA_SVC_MAX_SIZE		(20)
 #define BLE_SEND_TIMEOUT			(5000)
 #define BLE_RECV_TIMEOUT			(5000)
+#define BLE_START_SYNC_TIMEOUT		(5000)
+#define BLE_WAKEUP_SYNC_TIMEOUT 	(5000)
 
 
 
@@ -33,37 +33,46 @@ static sensor_data_t sensor_frame;
 
 
 static QueueHandle_t ble_rx_queue;
-static SemaphoreHandle_t ble_rdy_sema;
 static SemaphoreHandle_t ble_sent_sema;
 static SemaphoreHandle_t ble_sent_signal;
 static TimerHandle_t  ble_recv_timeout;
 
-
+static SemaphoreHandle_t BleStartSyncSemphr = NULL;
+static SemaphoreHandle_t BleWakeUpSyncSemphr = NULL;
 
 /**
  * @brief notification callback function
  */
-static void ble_notify_cb(BLE_connectionDetails_t conn)
+static void ble_notify_cb(BlePeripheral_Event_T event, void *data)
 {
 	/* process ccore stack global events */
 
-	switch(conn.connectionStatus) {
-		case BLE_CONNECTED_TO_DEVICE:
-			printf(" %s: Device connected: %02x:%02x:%02x:%02x:%02x:%02x \r\n", __func__,
-				 conn.remoteAddress.addr[0],
-				 conn.remoteAddress.addr[1],
-				 conn.remoteAddress.addr[2],
-				 conn.remoteAddress.addr[3],
-				 conn.remoteAddress.addr[4],
-				 conn.remoteAddress.addr[5]);
-			break;
+	switch(event) {
+	case BLE_PERIPHERAL_STARTED:
+		xSemaphoreGive( BleStartSyncSemphr );
+		break;
 
-		case BLE_DISCONNECTED_FROM_DEVICE:
-			printf("%s: Device disconnected!\r\n", __func__);
-			break;
+	case BLE_PERIPHERAL_WAKEUP_SUCCEEDED:
+		xSemaphoreGive( BleWakeUpSyncSemphr );
+		break;
 
-		default:
-			break;
+	case BLE_PERIPHERAL_CONNECTED:
+	{
+		Ble_RemoteDeviceAddress_T *remoteAddress;
+		remoteAddress = (Ble_RemoteDeviceAddress_T*) data;
+		printf("Device connected: %02x:%02x:%02x:%02x:%02x:%02x\n\r",
+					remoteAddress->Addr[0], remoteAddress->Addr[1],
+					remoteAddress->Addr[2], remoteAddress->Addr[3],
+					remoteAddress->Addr[4], remoteAddress->Addr[5]);
+		break;
+	}
+
+	case BLE_PERIPHERAL_DISCONNECTED:
+		printf("Device Disconnected\n\r");
+		break;
+
+	default:
+		break;
 	}
 
 }
@@ -80,81 +89,77 @@ static void ble_recv_timeout_cb(TimerHandle_t *t)
 	printf("%s: Packet reception timeout! \n\r", __func__);
 }
 
+static void ble_data_rx_cb(uint8_t *data, uint8_t len) {
 
-/**
- * @brief callback related to alpwise data exch svc
- */
-static void ble_alpw_data_xch_cb(BleAlpwDataExchangeEvent ev, BleStatus sts,
-			void *params)	{
-	if((ev == BLEALPWDATAEXCHANGE_EVENT_RXDATA) &&
-				(sts == BLESTATUS_SUCCESS) && (params != NULL)) {
-
-		PTD_pinOutToggle(PTD_PORT_LED_ORANGE,PTD_PIN_LED_ORANGE);
+	BSP_LED_Switch(BSP_XDK_LED_O, BSP_LED_COMMAND_ON);
 
 
-		/* extract data arrived from client */
-		BleAlpwDataExchangeServerRxData *rx =
-				(BleAlpwDataExchangeServerRxData *) params;
+	/* fill the packet */
+	memcpy(&ble_incoming_packet[0], data, len);
+	printf("%s: Raw data arrived len: %d! \n\r", __func__, len);
+	xQueueSend(ble_rx_queue, &ble_incoming_packet, 0);
 
-		/* fill the packet */
-		memcpy(&ble_incoming_packet[0], rx->rxData, rx->rxDataLen);
-		printf("%s: Raw data arrived len: %d! \n\r", __func__, rx->rxDataLen);
-		xQueueSend(ble_rx_queue, &ble_incoming_packet, 0);
-		PTD_pinOutToggle(PTD_PORT_LED_ORANGE,PTD_PIN_LED_ORANGE);
-	}
+	BSP_LED_Switch(BSP_XDK_LED_O, BSP_LED_COMMAND_OFF);
 
-	/* acknowledge that  data was sent */
-	else if(ev == BLEALPWDATAEXCHANGE_EVENT_TXCOMPLETE) {
-		PTD_pinOutToggle(PTD_PORT_LED_YELLOW,PTD_PIN_LED_YELLOW);
-
-		/* advances to next packet */
-		data_remaining -= ble_tx_descriptor.payload_size;
-		txpos+= ble_tx_descriptor.payload_size;
-
-		if(data_remaining) {
-
-
-			ble_tx_descriptor.payload_size = (data_remaining >= PACKET_MAX_PAYLOAD) ?
-											  PACKET_MAX_PAYLOAD 					 :
-											  data_remaining;
-
-			/*
-			 * If data has been splitten in more than 1 packets
-			 * the further one will carry a special type called
-			 * sequence with 0 packet number, which can be used
-			 * by client to identify out of sync transmission
-			 */
-			ble_tx_descriptor.type = k_sequence_packet;
-			ble_tx_descriptor.pack_amount = 0;
-
-			if(BLE_sendData((uint8_t *)&ble_tx_descriptor, sizeof(ble_data_t)) !=
-					BLE_SUCCESS	) {
-
-				/* failed to send, reset env */
-				data_remaining = 0;
-				txpos = 0;
-				printf("%s: failed to send packet  \n\r", __func__);
-				ble_send_error = true;
-				xSemaphoreGive(ble_sent_signal);
-
-			}
-		} else {
-			printf("%s: complete packet transmitted! \n\r", __func__);
-			xSemaphoreGive(ble_sent_signal);
-		}
-		PTD_pinOutToggle(PTD_PORT_LED_YELLOW,PTD_PIN_LED_YELLOW);
-	}
 }
+
+
+
+static void ble_data_tx_cb(Retcode_T err) {
+	BCDS_UNUSED(err);
+
+	BSP_LED_Switch(BSP_XDK_LED_Y, BSP_LED_COMMAND_ON);
+
+	/* advances to next packet */
+	data_remaining -= ble_tx_descriptor.payload_size;
+	txpos+= ble_tx_descriptor.payload_size;
+
+	if(data_remaining) {
+
+
+		ble_tx_descriptor.payload_size = (data_remaining >= PACKET_MAX_PAYLOAD) ?
+										  PACKET_MAX_PAYLOAD 					 :
+										  data_remaining;
+
+		/*
+		 * If data has been splitten in more than 1 packets
+		 * the further one will carry a special type called
+		 * sequence with 0 packet number, which can be used
+		 * by client to identify out of sync transmission
+		 */
+		ble_tx_descriptor.type = k_sequence_packet;
+		ble_tx_descriptor.pack_amount = 0;
+
+		if(BidirectionalService_SendData((uint8_t *)&ble_tx_descriptor, sizeof(ble_data_t)) !=
+				RETCODE_OK	) {
+
+			/* failed to send, reset env */
+			data_remaining = 0;
+			txpos = 0;
+			printf("%s: failed to send packet  \n\r", __func__);
+			ble_send_error = true;
+			xSemaphoreGive(ble_sent_signal);
+
+		}
+	} else {
+		printf("%s: complete packet transmitted! \n\r", __func__);
+		xSemaphoreGive(ble_sent_signal);
+	}
+
+	BSP_LED_Switch(BSP_XDK_LED_Y, BSP_LED_COMMAND_OFF);
+
+}
+
+
 
 /**
  * @brief service registration callback
  */
-static void ble_app_service_register_cb (void)
+static Retcode_T ble_app_service_register_cb (void)
 {
-	BleStatus svc_status;
-	svc_status = BLEALPWDATAEXCHANGE_SERVER_Register(ble_alpw_data_xch_cb);
-	assert(svc_status == BLESTATUS_SUCCESS);
-	xSemaphoreGive(ble_rdy_sema);
+	BidirectionalService_Init(ble_data_rx_cb, ble_data_tx_cb);
+	BidirectionalService_Register();
+	return (RETCODE_OK);
 }
 
 /**
@@ -204,15 +209,14 @@ static void ble_send_packet(ble_data_t *b,  uint8_t *data, uint32_t noof_packets
 														PACKET_MAX_PAYLOAD;
 
 		memcpy(&ble_tx_descriptor.pack_data, txpos, PACKET_MAX_PAYLOAD);
-		if(BLE_sendData((uint8_t *)&ble_tx_descriptor, sizeof(ble_data_t)) != BLE_SUCCESS) {
+
+		if(BidirectionalService_SendData((uint8_t *)&ble_tx_descriptor, sizeof(ble_data_t)) != RETCODE_OK) {
 			printf("%s: failed to transmit, please retry!", __func__);
 			goto cleanup;
 
 		} else {
 			/* wait until all packets goes off BLE buffer */
 			xSemaphoreTake(ble_sent_signal, portMAX_DELAY);
-
-
 			printf("%s: done!", __func__);
 		}
 
@@ -224,40 +228,6 @@ cleanup:
 	xSemaphoreGive(ble_sent_sema);
 	return;
 }
-
-
-
-/**
- * @brief initializes the ble stack
- */
-static int ble_init(void)
-{
-	int err = 0;
-
-	BLE_notification_t cfg_params;
-	BLE_returnStatus_t ble_ret;
-
-	/* prepare ble parameters */
-	cfg_params.callback = ble_notify_cb;
-	cfg_params.enableNotification = BLE_ENABLE_NOTIFICATION;
-	ble_ret = BLE_enablenotificationForConnect(cfg_params);
-	assert(ble_ret != BLE_INVALID_PARAMETER);
-
-	/* register data exchange service */
-	BLE_status sts = BLE_customServiceRegistry(ble_app_service_register_cb);
-	assert(sts != BLESTATUS_FAILED);
-
-	/* sets the device name */
-	ble_ret = BLE_setDeviceName((uint8_t *)ble_dev_name, sizeof(ble_dev_name));
-	assert(ble_ret != BLE_INVALID_PARAMETER);
-
-	/* initializes ble core stack */
-	sts = BLE_coreStackInit();
-	assert(sts != BLESTATUS_FAILED);
-
-	return(err);
-}
-
 
 /**
  * func()
@@ -349,17 +319,6 @@ static void ble_cmd_handler(ble_data_t *b)
 	}
 }
 
-static void ble_hci_task(void *args)
-{
-	(void)args;
-
-	for(;;) {
-		/* run the HCI and core processing stack */
-		BLE_hciReceiveData();
-	}
-}
-
-
 /**
  * @brief main ble application task
  */
@@ -370,8 +329,10 @@ static void ble_app_task(void *args)
 							NULL, ble_recv_timeout_cb);
 
 
-	/* waits until bt stack core is ready */
-	xSemaphoreTake(ble_rdy_sema, portMAX_DELAY);
+	/* initialize indication leds */
+	BSP_LED_EnableAll();
+
+
 	printf("%s: bt core stack signaled! bt app is ready! \n\r", __func__);
 	printf("%s: System Clock is: %lu [Hz]! \n\r", __func__, SystemCoreClock);
 
@@ -409,11 +370,11 @@ static void ble_app_task(void *args)
 void app_ble_init(void)
 {
 	portBASE_TYPE err;
+	Retcode_T ble_sts;
+	BaseType_t sem_sts;
+
 
 	/* creates semaphore to wait stack ready */
-	ble_rdy_sema = xSemaphoreCreateBinary();
-	assert(ble_rdy_sema != NULL);
-
 	ble_sent_signal = xSemaphoreCreateBinary();
 	assert(ble_sent_signal != NULL);
 
@@ -424,14 +385,21 @@ void app_ble_init(void)
 	ble_rx_queue = xQueueCreate(BLE_QUEUE_SLOTS, sizeof(ble_data_t));
 	assert(ble_rx_queue != NULL);
 
-	/* inits the bt stack */
-	ble_init();
+    BleStartSyncSemphr = xSemaphoreCreateBinary();
+    BleWakeUpSyncSemphr = xSemaphoreCreateBinary();
+
+    /* initialize the core stack and the BLE services */
+    ble_sts = BlePeripheral_Initialize(ble_notify_cb, ble_app_service_register_cb);
+    ble_sts = BlePeripheral_SetDeviceName((uint8_t *) ble_dev_name);
+
+    ble_sts = BlePeripheral_Start();
+    sem_sts = xSemaphoreTake(BleStartSyncSemphr, BLE_START_SYNC_TIMEOUT);
+    assert(sem_sts == pdTRUE);
+
+    ble_sts = BlePeripheral_Wakeup();
+	sem_sts = xSemaphoreTake(BleWakeUpSyncSemphr, BLE_WAKEUP_SYNC_TIMEOUT);
+	assert(sem_sts == pdTRUE);
 
 	err = xTaskCreate(ble_app_task,"ble_app",BLE_APP_STK_SIZE,NULL,BLE_APP_PRIO,NULL);
-	assert(err == pdPASS);
-
-
-	/* create the ble task */
-	err = xTaskCreate(ble_hci_task,"ble_hci",BLE_APP_STK_SIZE,NULL,BLE_HCI_HIGH_PRIO,NULL);
 	assert(err == pdPASS);
 }
