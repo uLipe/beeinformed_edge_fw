@@ -1,4 +1,4 @@
-/Users/user/Documents/devel/beeinformed_edge_fw/debug/objects/source/Assert.o: \
+/Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/debug/objects/source/Assert.o: \
  source/Assert.c ../Platform/Essentials/include/BCDS_Essentials.h \
  ../Platform/Essentials/include/BCDS_HAL.h \
  ../Platform/Essentials/include/BCDS_Retcode.h \

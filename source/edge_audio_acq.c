@@ -8,37 +8,17 @@
 
 #define AUDIO_TASK_STK_SIZE			256
 #define AUDIO_TASK_PRIO				(15)
-//#define AUDIO_DMA_SIGNAL			DMAREQ_ADC0_SINGLE
-//#define AUDIO_DMA_CHANNEL			8
-
+#define AUDIO_MAX_PERIOD_ACQ		50
 
 /** static variables */
-static volatile ppbuf_t audio_buffer;
+static volatile uint16_t audio_buffer[AUDIO_BUFFER_SIZE];
 static SemaphoreHandle_t audio_signal;
 static uint16_t adc_cnt = 0;
 static QueueHandle_t audio_request;
 static bool audio_rdy = false;
-
-//extern DMA_DESCRIPTOR_TypeDef dmaControlBlock[];
+static uint32_t samples_to_capture = 0;
 
 /** internal functions */
-
-
-/**
- * @brief audio dma callback
- */
-//static void audio_record_callback(uint32_t channel, bool primary, void *param)
-//{
-//	portBASE_TYPE ctw = 0;
-//	BCDS_UNUSED(primary);
-//	BCDS_UNUSED(param);
-//
-//	puts("*** audio ISR ***\n\r");
-//	TIMER_Enable(TIMER0, false);
-//	audio_buffer.active ^= 0x01;
-//	xSemaphoreGiveFromISR(audio_signal, &ctw);
-//	portYIELD_FROM_ISR(ctw);
-//}
 
 /**
  * @brief capture samples from ADC
@@ -46,12 +26,12 @@ static bool audio_rdy = false;
 void ADC0_IRQHandler(void)
 {
 	/* collect the samples */
-	audio_buffer.data[audio_buffer.active][adc_cnt] = ADC_DataSingleGet(ADC0);
-	//printf("%s: Data mic captured: %u \n\r", __func__, audio_buffer.data[audio_buffer.active][adc_cnt]);
+	audio_buffer[adc_cnt] = ADC_DataSingleGet(ADC0);
+	//printf("%s: Data mic captured: %u \n\r", __func__, audio_buffer[adc_cnt]);
 	adc_cnt++;
 	ADC_IntClear(ADC0, ADC_IFC_SINGLE);
 
-	if(adc_cnt >= AUDIO_BUFFER_SIZE) {
+	if(adc_cnt >= samples_to_capture) {
 		/* samples collected notify the audio capture task */
 		TIMER_Enable(TIMER0, false);
 		portBASE_TYPE ctw = 0;
@@ -64,74 +44,17 @@ void ADC0_IRQHandler(void)
 /**
  * @brief start audio capture engine
  */
-static uint8_t audio_start_capture(void)
+static void audio_start_capture(void)
 {
-	uint8_t ret = audio_buffer.active;
-	/*
-	 * trigger dma capturing engine pointing to next free buffer
-	 */
-/*
-	DMA_ActivateBasic(AUDIO_DMA_CHANNEL,
-						true,
-						false,
-						&audio_buffer.data[audio_buffer.active],
-						(void *)&ADC0->SINGLEDATA,
-						(uint32_t)(AUDIO_BUFFER_SIZE - 1));
- */
 	/*
 	 * Reset sample counter and flip to next buffer to capture
 	 */
 	adc_cnt = 0;
-	audio_buffer.active ^= 0x01;
 	TIMER_Enable(TIMER0, true);
 	printf("%s: started to capture audio! \n\r", __func__);
-
-	return(ret);
-
 }
 
 
-/**
- * @brief inits the DMA subsystem
- */
-
-//static void audio_init_dma(void)
-//{
-//	DMA_CfgChannel_TypeDef dma_channel;
-//	DMA_CfgDescr_TypeDef   dma_cfg;
-//	DMA_Init_TypeDef	   dma_init;
-//	CMU_ClockEnable(cmuClock_DMA,true);
-//
-//	/* setup DMA internal structures,
-//	 * we want to receive requests from ADC
-//	 * and fills a buffer on RAM
-//	 */
-//
-//	dma_init.hprot = 0;
-//	dma_init.controlBlock = dmaControlBlock;
-//	DMA_Reset();
-//	DMA_Init(&dma_init);
-//
-//
-//	DMA_CB_TypeDef 	cbprop;
-//	cbprop.cbFunc = audio_record_callback;
-//	cbprop.userPtr = NULL;
-//
-//	dma_channel.cb = &cbprop;
-//	dma_channel.enableInt=true;
-//	dma_channel.highPri = false;
-//	dma_channel.select = AUDIO_DMA_SIGNAL;
-//	DMA_CfgChannel(AUDIO_DMA_CHANNEL, &dma_channel);
-//
-//
-//	dma_cfg.srcInc = dmaDataIncNone;
-//	dma_cfg.dstInc = dmaDataInc2;
-//	dma_cfg.hprot = 0;
-//	dma_cfg.size = dmaDataSize2;
-//	dma_cfg.arbRate = dmaArbitrate1;
-//	DMA_CfgDescr(AUDIO_DMA_CHANNEL, true, &dma_cfg);
-//
-//}
 
 /**
  * @brieg inits the timer used to sample analog readings
@@ -177,14 +100,6 @@ static void audio_init_adc(void)
 	ADC_Init_TypeDef cfg = ADC_INIT_DEFAULT;
 
 	/* turn on the AKU340 power supply */
-//	GPIO_PinModeSet(gpioPortD, 9, gpioModePushPull, 0);
-//    GPIO_PinModeSet(gpioPortD, 4, gpioModePushPullDrive, 0);
-
-//	Board_WakeupPowerSupply2V5(MIC_AKU340);
-
-//	GPIO_PinOutSet(gpioPortD, 9);
-//  GPIO_PinOutClear(gpioPortD, 4);
-
 	BSP_Mic_AKU340_Connect();
 	BSP_Mic_AKU340_Enable();
 
@@ -219,7 +134,6 @@ static void audio_init_adc(void)
  */
 static void audio_hw_init(void)
 {
-	//audio_init_dma();
 	audio_init_adc();
 	audio_init_timer();
 	printf("%s: initialized audio hardware! \n\r", __func__);
@@ -231,7 +145,6 @@ static void audio_hw_init(void)
  */
 static void audio_task(void *args)
 {
-	uint8_t active;
 	(void)args;
 	audio_signal = xSemaphoreCreateBinary();
 	audio_request = xQueueCreate(AUDIO_MAX_RECORDS, sizeof(audio_request_t));
@@ -240,17 +153,14 @@ static void audio_task(void *args)
 
 
 	audio_request_t current_req = {0};
-	uint16_t noof_blocks = 0;
 	uint16_t *audio_ptr = NULL;
 
-	/* assign the available data to env */
-	audio_buffer.active = 0;
-
-	/* init adc and DMA subsystem
+	/* init adc
 	 * and starts to listen the acoustic sensor
 	 */
 	audio_hw_init();
 	audio_rdy = true;
+
 
 	for(;;){
 
@@ -267,7 +177,7 @@ static void audio_task(void *args)
 		}
 
 		/* file size in seconds needs to be valid also */
-		if(!current_req.seconds) {
+		if(current_req.miliseconds > AUDIO_MAX_PERIOD_ACQ) {
 			printf("%s: invalid period of  acquisition! \n\r", __func__);
 			if(current_req.cb != NULL) {
 				current_req.cb(current_req.user_data, kaudio_sec_invalid);
@@ -275,33 +185,19 @@ static void audio_task(void *args)
 			continue;
 		}
 
-
 		/* calculate the noof blocks for required audio window size */
-		noof_blocks = (current_req.seconds * (AUDIO_SAMPLE_RATE))/AUDIO_BUFFER_SIZE;
-		printf("%s: audio acquisition block size, block: %u \n\r", __func__, noof_blocks);
+		samples_to_capture = (current_req.miliseconds * (AUDIO_SAMPLE_RATE/1000));
+		printf("%s: audio acquisition block size, block: %u \n\r", __func__, samples_to_capture);
 
 		audio_ptr = current_req.samples;
 
 		/*start acquisition */
-		active = audio_start_capture();
+		audio_start_capture();
 
-
-
-		 do {
-			/* wait new data available from ISR */
-			xSemaphoreTake(audio_signal, portMAX_DELAY);
-
-			/* data arrived, triggers the next capture stage, and
-			 * perform copy of new arrived samples to the audio file
-			 */
-			active = audio_start_capture();
-			memcpy(audio_ptr, &audio_buffer.data[active], sizeof(uint16_t) * AUDIO_BUFFER_SIZE);
-			audio_ptr += AUDIO_BUFFER_SIZE;
-			noof_blocks--;
-
-			printf("%s: new audio data block arrived, block: %u \n\r", __func__, noof_blocks);
-		}while(noof_blocks > 0);
-
+		/* wait new data available from ADC subsys */
+		xSemaphoreTake(audio_signal, portMAX_DELAY);
+		memcpy(audio_ptr, &audio_buffer, sizeof(uint16_t) * samples_to_capture);
+		printf("%s: new audio data block arrived. \n\r", __func__);
 
 		/* once audio is captured, notify to the asynch callback
 		 * that the acquisition is complete and resides in
@@ -310,7 +206,6 @@ static void audio_task(void *args)
 		if(current_req.cb != NULL) {
 			current_req.cb(current_req.user_data, kaudio_acquisition_ok);
 		}
-
 	}
 }
 
@@ -323,7 +218,7 @@ void audio_app_init(void)
 	assert(err == pdPASS);
 }
 
-bool audio_start_record(uint16_t *outfile, uint16_t seconds, audio_complete_callback_t cb, void *user_data)
+bool audio_start_record(uint16_t *outfile, uint16_t miliseconds, audio_complete_callback_t cb, void *user_data)
 {
 	bool ret = false;
 
@@ -335,7 +230,7 @@ bool audio_start_record(uint16_t *outfile, uint16_t seconds, audio_complete_call
 	if(outfile == NULL)
 		goto cleanup;
 
-	if(!seconds)
+	if(!miliseconds)
 		goto cleanup;
 
 	if(!cb)
@@ -343,7 +238,7 @@ bool audio_start_record(uint16_t *outfile, uint16_t seconds, audio_complete_call
 
 	audio_request_t req;
 	req.samples = outfile;
-	req.seconds = seconds;
+	req.miliseconds = miliseconds;
 	req.cb = cb;
 	req.user_data = user_data;
 

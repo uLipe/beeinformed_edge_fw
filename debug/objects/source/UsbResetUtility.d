@@ -1,4 +1,4 @@
-/Users/user/Documents/devel/beeinformed_edge_fw/debug/objects/source/UsbResetUtility.o: \
+/Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/debug/objects/source/UsbResetUtility.o: \
  source/UsbResetUtility.c ../Common/include/XdkCommonInfo.h \
  ../Common/include/XdkUsbResetUtility.h \
  ../Platform/Essentials/include/BCDS_Retcode.h \

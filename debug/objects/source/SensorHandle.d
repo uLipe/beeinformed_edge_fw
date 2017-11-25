@@ -1,4 +1,4 @@
-/Users/user/Documents/devel/beeinformed_edge_fw/debug/objects/source/SensorHandle.o: \
+/Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/debug/objects/source/SensorHandle.o: \
  source/SensorHandle.c ../Common/include/XdkCommonInfo.h \
  ../Common/include/XdkSensorHandle.h \
  ../Platform/Sensors/include/BCDS_Accelerometer.h \

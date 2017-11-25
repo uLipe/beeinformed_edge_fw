@@ -1,4 +1,4 @@
-/Users/user/Documents/devel/beeinformed_edge_fw/debug/objects/source/SystemStartup.o: \
+/Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/debug/objects/source/SystemStartup.o: \
  source/SystemStartup.c ../Common/include/XdkCommonInfo.h \
  ../Platform/Essentials/include/BCDS_Basics.h \
  ../Common/include/XdkSystemStartup.h \

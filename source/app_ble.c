@@ -28,7 +28,7 @@ static ble_data_t ble_tx_descriptor;
 static bool ble_send_error = false;
 
 /* sensor node data holders */
-static uint16_t audio_buffer[AUDIO_SAMPLE_RATE] = {0};
+AUDIO_CREATE_BUFFER(audio_buffer, BLE_APP_AUDIO_CAPTURE_PERIOD);
 static sensor_data_t sensor_frame;
 
 
@@ -112,7 +112,7 @@ static void ble_data_tx_cb(Retcode_T err) {
 
 	/* advances to next packet */
 	data_remaining -= ble_tx_descriptor.payload_size;
-	txpos+= ble_tx_descriptor.payload_size;
+	txpos+= ble_tx_descriptor.payload_size * sizeof(uint8_t);
 
 	if(data_remaining) {
 
@@ -129,6 +129,9 @@ static void ble_data_tx_cb(Retcode_T err) {
 		 */
 		ble_tx_descriptor.type = k_sequence_packet;
 		ble_tx_descriptor.pack_amount = 0;
+
+		memcpy(&ble_tx_descriptor.pack_data, txpos, ble_tx_descriptor.payload_size * sizeof(uint8_t));
+
 
 		if(BidirectionalService_SendData((uint8_t *)&ble_tx_descriptor, sizeof(ble_data_t)) !=
 				RETCODE_OK	) {
@@ -208,7 +211,7 @@ static void ble_send_packet(ble_data_t *b,  uint8_t *data, uint32_t noof_packets
 														noof_packets :
 														PACKET_MAX_PAYLOAD;
 
-		memcpy(&ble_tx_descriptor.pack_data, txpos, PACKET_MAX_PAYLOAD);
+		memcpy(&ble_tx_descriptor.pack_data, txpos, PACKET_MAX_PAYLOAD * sizeof(uint8_t));
 
 		if(BidirectionalService_SendData((uint8_t *)&ble_tx_descriptor, sizeof(ble_data_t)) != RETCODE_OK) {
 			printf("%s: failed to transmit, please retry!", __func__);
@@ -293,7 +296,8 @@ static inline void handle_audio(ble_data_t *b)
 	(void)b;
 
 	/* start audio capture */
-	audio_start_record(&audio_buffer[0], 1, ble_on_audio_acquired, &b->id);
+	audio_start_record(&audio_buffer[0], AUDIO_BUFFER_GET_LEN_IN_MS(audio_buffer), ble_on_audio_acquired, &b->id);
+
 }
 
 /**

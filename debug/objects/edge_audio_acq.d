@@ -1,6 +1,6 @@
-/Users/user/Documents/devel/beeinformed_edge_fw/debug/objects/edge_audio_acq.o: \
- /Users/user/Documents/devel/beeinformed_edge_fw/source/edge_audio_acq.c \
- /Users/user/Documents/devel/beeinformed_edge_fw/source/../usr_include/beeinformed.h \
+/Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/debug/objects/edge_audio_acq.o: \
+ /Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/source/edge_audio_acq.c \
+ /Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/source/../usr_include/beeinformed.h \
  ../Platform/Essentials/include/BCDS_Basics.h \
  ../Platform/Essentials/include/BCDS_Retcode.h \
  ../Platform/BSP/include/BSP_BoardType.h \
@@ -31,11 +31,11 @@
  ../Platform/SensorToolbox/include/BCDS_FingerPrint.h \
  ../Platform/Essentials/include/mcu/BCDS_MCU_GPIO.h \
  ../Platform/BLE/include/services/BCDS_SensorServices.h \
- /Users/user/Documents/devel/beeinformed_edge_fw/source/../usr_include/edge_audio_acq.h \
- /Users/user/Documents/devel/beeinformed_edge_fw/source/../usr_include/edge_sensors.h \
- /Users/user/Documents/devel/beeinformed_edge_fw/source/../usr_include/app_ble.h
+ /Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/source/../usr_include/edge_audio_acq.h \
+ /Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/source/../usr_include/edge_sensors.h \
+ /Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/source/../usr_include/app_ble.h
 
-/Users/user/Documents/devel/beeinformed_edge_fw/source/../usr_include/beeinformed.h:
+/Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/source/../usr_include/beeinformed.h:
 
 ../Platform/Essentials/include/BCDS_Basics.h:
 
@@ -97,8 +97,8 @@
 
 ../Platform/BLE/include/services/BCDS_SensorServices.h:
 
-/Users/user/Documents/devel/beeinformed_edge_fw/source/../usr_include/edge_audio_acq.h:
+/Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/source/../usr_include/edge_audio_acq.h:
 
-/Users/user/Documents/devel/beeinformed_edge_fw/source/../usr_include/edge_sensors.h:
+/Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/source/../usr_include/edge_sensors.h:
 
-/Users/user/Documents/devel/beeinformed_edge_fw/source/../usr_include/app_ble.h:
+/Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/source/../usr_include/app_ble.h:
