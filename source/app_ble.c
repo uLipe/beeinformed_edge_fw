@@ -27,9 +27,12 @@ static uint32_t data_remaining = 0;
 static ble_data_t ble_tx_descriptor;
 static bool ble_send_error = false;
 
+
+
 /* sensor node data holders */
 AUDIO_CREATE_BUFFER(audio_buffer, BLE_APP_AUDIO_CAPTURE_PERIOD);
 static sensor_data_t sensor_frame;
+static audio_spectra_t audio_information={0x55};
 
 
 static QueueHandle_t ble_rx_queue;
@@ -191,12 +194,12 @@ static void ble_send_packet(ble_data_t *b,  uint8_t *data, uint32_t noof_packets
 		memcpy(&ble_tx_descriptor, b, sizeof(ble_data_t));
 		txpos = data;
 		data_remaining = noof_packets;
-		ble_tx_descriptor.pack_amount = data_remaining;
-		printf("%s: sending data through ble! \n\r type: %u \n\r id: %u \n\r packs: %u \n\r",
+		ble_tx_descriptor.pack_amount = 0;
+		printf("%s: sending data through ble! \n\r type: %u \n\r id: %u \n\r size: %u \n\r",
 				__func__,
 				ble_tx_descriptor.type,
 				ble_tx_descriptor.id,
-				ble_tx_descriptor.pack_amount);
+				data_remaining);
 
 		/* round packets qty up to avoid loss of data out of
 		 * PACKET_MAX_PAYLOAD boundary
@@ -263,8 +266,10 @@ static void ble_on_audio_acquired(void *user_data, audio_status_t s)
 	reply.type = k_data_packet;
 	reply.id   = (edge_cmds_t) user_data;
 
+	audio_dsp_process_samples(&audio_buffer[0], DSP_FFT_POINTS, AUDIO_SAMPLE_RATE, &audio_information);
+
 	if(s == kaudio_acquisition_ok) {
-		ble_send_packet(&reply, (uint8_t *)audio_buffer, 255);
+		ble_send_packet(&reply, (uint8_t *)&audio_information, sizeof(audio_information));
 	}
 }
 

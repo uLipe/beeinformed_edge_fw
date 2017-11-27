@@ -13,7 +13,7 @@
 #define PACKET_MAX_PAYLOAD 16
 
 /** audio time capture in ms */
-#define BLE_APP_AUDIO_CAPTURE_PERIOD  22
+#define BLE_APP_AUDIO_CAPTURE_PERIOD  11
 
 
 /** packet types */

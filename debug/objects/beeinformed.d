@@ -30,6 +30,7 @@
  ../Platform/SensorToolbox/include/BCDS_FingerPrint.h \
  ../Platform/Essentials/include/mcu/BCDS_MCU_GPIO.h \
  ../Platform/BLE/include/services/BCDS_SensorServices.h \
+ /Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/source/../usr_include/edge_audio_processing.h \
  /Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/source/../usr_include/edge_audio_acq.h \
  /Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/source/../usr_include/edge_sensors.h \
  /Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/source/../usr_include/app_ble.h
@@ -93,6 +94,8 @@
 ../Platform/Essentials/include/mcu/BCDS_MCU_GPIO.h:
 
 ../Platform/BLE/include/services/BCDS_SensorServices.h:
+
+/Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/source/../usr_include/edge_audio_processing.h:
 
 /Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/source/../usr_include/edge_audio_acq.h:
 

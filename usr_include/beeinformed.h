@@ -47,6 +47,7 @@
 #include "BCDS_SensorServices.h"
 
 
+#include "edge_audio_processing.h"
 #include "edge_audio_acq.h"
 #include "edge_sensors.h"
 #include "app_ble.h"

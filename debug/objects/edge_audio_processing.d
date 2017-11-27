@@ -1,15 +1,8 @@
-/Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/debug/objects/main.o: \
- /Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/source/main.c \
- ../Platform/Essentials/include/BCDS_Basics.h \
- ../Common/include/XdkSystemStartup.h \
- ../Platform/Essentials/include/BCDS_Retcode.h \
- ../Platform/Essentials/include/BCDS_Basics.h \
- ../Platform/Essentials/include/BCDS_Assert.h \
- ../Platform/Essentials/include/BCDS_Retcode.h \
- ../Platform/Utils/include/BCDS_CmdProcessor.h \
- ../Platform/Utils/include/BCDS_Utils.h \
- ../Common/config/Utils/BCDS_UtilsConfig.h \
+/Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/debug/objects/edge_audio_processing.o: \
+ /Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/source/edge_audio_processing.c \
  /Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/source/../usr_include/beeinformed.h \
+ ../Platform/Essentials/include/BCDS_Basics.h \
+ ../Platform/Essentials/include/BCDS_Retcode.h \
  ../Platform/BSP/include/BSP_BoardType.h \
  ../Platform/Essentials/include/bsp/BCDS_BSP_Board.h \
  ../Platform/Essentials/include/BCDS_HAL.h \
@@ -43,25 +36,11 @@
  /Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/source/../usr_include/edge_sensors.h \
  /Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/source/../usr_include/app_ble.h
 
-../Platform/Essentials/include/BCDS_Basics.h:
-
-../Common/include/XdkSystemStartup.h:
-
-../Platform/Essentials/include/BCDS_Retcode.h:
-
-../Platform/Essentials/include/BCDS_Basics.h:
-
-../Platform/Essentials/include/BCDS_Assert.h:
-
-../Platform/Essentials/include/BCDS_Retcode.h:
-
-../Platform/Utils/include/BCDS_CmdProcessor.h:
-
-../Platform/Utils/include/BCDS_Utils.h:
-
-../Common/config/Utils/BCDS_UtilsConfig.h:
-
 /Applications/XDK.app/Contents/MacOS/workspace/beeinformed_3_0/source/../usr_include/beeinformed.h:
+
+../Platform/Essentials/include/BCDS_Basics.h:
+
+../Platform/Essentials/include/BCDS_Retcode.h:
 
 ../Platform/BSP/include/BSP_BoardType.h:
 

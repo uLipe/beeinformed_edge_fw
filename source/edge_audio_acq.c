@@ -114,7 +114,7 @@ static void audio_init_adc(void)
 	seq.rep   = false;
 	seq.prsEnable =true;
 	seq.resolution = adcRes12Bit;
-	seq.reference = adcRef2V5;
+	seq.reference = adcRef1V25;
 	seq.prsSel = adcPRSSELCh0;
 	seq.acqTime = adcAcqTime4;
 
